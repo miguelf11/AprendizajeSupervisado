@@ -1,8 +1,8 @@
 # Install dependencies in Linux
-# sudo apt-get install libcurl4-openssl-dev 
+#sudo apt-get install libcurl4-openssl-dev 
 
 install = function(pkg){
-  # Si ya est√° instalado, no lo instala.
+  # Si ya est· instalado, no lo instala.
   if (!require(pkg, character.only = TRUE)) {
     install.packages(pkg, repos = "http:/cran.rstudio.com")
     if (!require(pkg, character.only = TRUE)) stop(paste("load failure:", pkg))
@@ -43,5 +43,7 @@ get_data = function(api_url){
 
 # To Complete
 parse_data = function(json){
-  
+  return(as.vector(unlist(json)))
 }
+
+
