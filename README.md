@@ -7,7 +7,7 @@
 
 #Archivos
 
-- hogares_googleApi.R es donde se usa la dirección para calcular la distancia/tiempo entre los hogares posibles y la universidad de Roma La Sapienza y retorne hogares.csv
+- hogares_googleApi.R es donde se usa la dirección para calcular la distancia/tiempo entre los hogares posibles y la universidad de Roma La Sapienza y retorna hogares.csv
 - procHogar.R  preprocesamiento y regresion lineal. 
 - becas2.R es el script para realizar el procesamiento de minable.csv usando k vecinos mas cercanos,árboles de decisión y reglas de clasificación
 - data:
