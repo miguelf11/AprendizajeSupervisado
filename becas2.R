@@ -2,6 +2,7 @@
 source("google_api.R")
 install("class")
 install("dplyr")
+install("rpart")
 
 #normalizar datos entre 0 y 1
 normalize <- function(x) {
@@ -45,7 +46,7 @@ dat$fNacimiento <- a
 
 
 
-#KNN
+#KNN - listo falta optimizar!!
 c <- 1:length(dat)
 c <- c[-6] 
 dat.knn <- as.data.frame(lapply(dat[c], normalize))
@@ -57,10 +58,24 @@ knn_test <- dat.knn[133:190,]
 
 knn_train_labels <- dat[1:133, 6]
 knn_test_labels <- dat[133:190, 6]   
-#This code takes the diagnosis factor in column 1 
-#of the prc data frame and on turn creates prc_train_labels and prc_test_labels data frame
 
 
-prc_test_pred <- knn(train = knn_train, test = knn_test,cl = knn_train_labels, k=10)
+
+prc_test_pred <- knn(train = knn_train, test = knn_test,cl = knn_train_labels, k=8)
+
+table(knn_test_labels,prc_test_pred)
+
+
+
+#arboles de decisión
+training <- sample_n(dat,133)
+testing <- sample_n(dat,67)
+formula <- training$mIngreso ~ .
+tree<- rpart(formula,training)
+plot(tree)
+text(tree) #para generar el texto
+
+
+
 
 
