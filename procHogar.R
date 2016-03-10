@@ -1,66 +1,129 @@
-#prueba
-
 datos <- read.csv("data/hogares.csv")
 
 
+#ragazzi/ragazze = hombre/mujer (B)(2)
+#ragazze = mujer(F)(1)
+#ragazzi = hombre(M)(0)
 
-
-
-
-#ragazzi/ragazze = hombre/mujer (B)
-#ragazze = mujer(F)
-#ragazzi = hombre(M)
-
-sexo <- rep("NA",length(datos$Notas))
+sexo <- rep(NA,length(datos$Notas))
 notas <- datos$Notas
 notas <- as.character(notas)
 
 for(i in 1:length(sexo)){
-  if(grepl("ragazzi/ragazze",notas[i])){
-    sexo[i] <- "B"
+  if(grepl("ragazzi/ragazze",notas[i],ignore.case = TRUE)){
+    sexo[i] <- 2
   }else{
-    if(grepl("ragazzi",notas[i])){
-      sexo[i] <- "M"
+    if(grepl("ragazzi",notas[i],ignore.case = TRUE)){
+      sexo[i] <- 0
     }
-    if(grepl("ragazze",notas[i])){
-      sexo[i] <- "F"
+    if(grepl("ragazze",notas[i],ignore.case = TRUE)){
+      sexo[i] <- 1
     }
     if(is.na(sexo[i])){
-      sexo[i] <- "B"
+      sexo[i] <- 2
     }
   }
     
 }
 datos$sexo <- sexo
 
-datos.female <- datos[datos$sexo == "F" | datos$sexo == "B", ]
-datos.male <- datos[datos$sexo == "M" | datos$sexo == "B", ]
+datos.female <- datos[datos$sexo == 1 | datos$sexo == 2, ]
+datos.male <- datos[datos$sexo == 0 | datos$sexo == 2, ]
 
 
 
-todo.incluido <- rep(0,length(datos$Notas))
-notas <- datos$Precio.Mensual
-notas <- as.character(notas)
+condominio <- rep(0,length(datos$Precio.Mensual))
+aseo <- rep(0,length(datos$Precio.Mensual))
+agua <- rep(0,length(datos$Precio.Mensual))
+internet <- rep(0,length(datos$Precio.Mensual))
+calefaccion <- rep(0,length(datos$Precio.Mensual))
+internet <- rep(0,length(datos$Precio.Mensual))
+precio.mensual <- datos$Precio.Mensual
+precio.mensual <- as.character(precio.mensual)
 
 for(i in 1:length(sexo)){
-  if(grepl("TUTTO INCLUSO",notas[i])){
-    todo.incluido[i] <- 1
+  if(grepl("TUTTO INCLUSO",precio.mensual[i])){
+    condominio[i] <- 1
+    aseo[i] <- 1
+    agua[i] <- 1
+    internet[i] <- 1
+    calefaccion[i] <- 1
+    internet[i] <- 1
+  }
+  if(grepl("acqua",precio.mensual[i])){
+    agua[i] <- 1
+  }
+  if(grepl("rifiuti",precio.mensual[i])){
+    aseo[i] <- 1
+  }
+  if(grepl("internet inclu",precio.mensual[i])){
+    internet[i] <- 1
+  }
+  if(grepl("con",precio.mensual[i])){
+    condominio[i] <- 1
+  }
+  if(grepl("risca",precio.mensual[i])){
+    calefaccion[i] <- 1
+  }
+  if(grepl("50/meses condominio e riscaldamento",precio.mensual[i])){
+    condominio[i] <- 0
+    calefaccion[i] <- 0
+  }
+  if(grepl("spese incluse tranne internet",precio.mensual[i])){
+    condominio[i] <- 1
+    aseo[i] <- 1
+    agua[i] <- 1
+    internet[i] <- 1
+    calefaccion[i] <- 1
+    internet[i] <- 0
+  }
+  if(grepl("ad eccezione di internet",precio.mensual[i])){
+    internet[i] <- 0
   }
   
+
 }
-datos$todo.incluido <- todo.incluido
+datos$condominio <- condominio
+datos$aseo <- aseo
+datos$agua <- agua
+datos$internet <- internet
+datos$calefaccion <- calefaccion
+datos$internet <- internet
 
-#datos[fila,columna]
 
 
-#falta separar las habitaciones creando nuevas filas
+View(datos)
+# precio.mensual <- as.character(datos$Precio.Mensual)
+
+# #falta separar las habitaciones creando nuevas filas
+# 
+# # precio.mensual <- as.character(precio.mensual)
+# # b <- rep("NA",10000)
+# # a <- rep("0",length(precio.mensual))
+# # k <- 0
+# # for(i in 1:length(precio.mensual)){
+# #   a[i] <- strsplit(precio.mensual[i],";|,")
+# #   a <- unlist(a[i])
+# #   for (j in 1:length(a)){
+# #     b <- strsplit(a,",")
+# #     k <- k+1
+# #   }
+# # }
+# 
+# 
+# a <- strsplit(precio.mensual[4],";|,")
+# a <- unlist(a)
+# b <- strsplit(a[1],",")
+# b <- unlist(b)
 
 
-a <- rep("0",length(notas))
-for(i in 1:length(notas)){
-  a[i] <- strsplit(notas[i],";")
-}
 
-notas[1]
-a <- strsplit(notas[1],";")
-a <- unlist(a)
+
+
+
+
+
+# c <- c(7,14,15,16,17,18)
+# prueba <- datos[,c]
+# View(prueba)
+
