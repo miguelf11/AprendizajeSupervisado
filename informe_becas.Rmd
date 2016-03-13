@@ -1,0 +1,388 @@
+---
+title: "Informe Becas"
+author: "Miguel Figueira"
+date: "12 de marzo de 2016"
+output: word_document
+---
+
+```{r,echo=FALSE,eval=TRUE}
+# funcion para instalar paquetes (no funciona siempre)
+install = function(pkg){
+  # Si ya está instalado, no lo instala.
+  if (!require(pkg, character.only = TRUE)) {
+    install.packages(pkg, repos = "http:/cran.rstudio.com")
+    if (!require(pkg, character.only = TRUE)) stop(paste("load failure:", pkg))
+  }
+}
+
+install("class")
+install("dplyr")
+install("rpart")
+install("rpart.plot")
+install("RWeka")
+install("caret")
+
+
+#normalizar datos entre 0 y 1
+normalize <- function(x) {
+  return (x - min(x)) / (max(x) - min(x)) 
+}
+
+comparar <- rep(0,9)
+dat <- read.csv("data/minable.csv", stringsAsFactors = FALSE)
+```
+
+
+
+##Preprocesamiento
+
+1. Eliminar features que no son necesarios:
+
+```{r,echo=TRUE,eval=TRUE}
+dat$jReprobadas <- NULL
+dat$dHabitacion <- NULL
+dat$sugerencias <- NULL
+dat$aEconomica <- NULL
+dat$cDireccion <- NULL
+dat$oSolicitudes <- NULL
+dat$pReside <- NULL
+dat$cIdentidad <- NULL
+```
+
+2. Acomodar la columna grOdontologicos que tiene una instancia con "o" en vez de 0(cero)
+
+```{r,echo=TRUE,eval=TRUE}
+dat$grOdontologicos[dat$grOdontologicos == "o"] <- as.character(0)
+dat$grOdontologicos <- as.integer(dat$grOdontologicos)
+```
+
+
+3. Comparar la fecha con una fecha actual para obtener la edad , además de eliminar las instancias que tienen una edad menor a 5 (son 2 instancias) las cuales no tienen sentido y pueden "dañar" el modelo
+
+```{r,echo=TRUE,eval=TRUE}
+actual <- as.Date("01/03/2016",format("%d/%m/%Y"))
+a <- rep(as.Date("14/03/1979",format="%d/%m/%Y"),length(dat$fNacimiento))
+edad <- rep(NA,length(dat$fNacimiento))
+for(i in 1:length(dat$fNacimiento)){
+  a[i] <- as.Date(dat$fNacimiento[i],format="%d/%m/%Y")
+  edad[i] <- as.integer(actual-a[i]) %/% 365
+}
+dat$fNacimiento <- NULL
+dat$edad <- edad
+
+dat <- dat[dat$edad > 5, ]
+```
+
+
+4. Eliminar la instancia que tiene el "mIngreso" = 1 ya que es la única instancia que tiene este modo de ingreso por lo tanto los modelos no pueden "aprender"y  en caso de que sea parte del testing y si es parte del training no es lo suficientemente significativo.
+
+
+```{r,echo=TRUE,eval=TRUE}
+dat <- dat[dat$mIngreso != 1, ]
+```
+
+
+5. Crear la data de entrenamiento y de prueba , manteniendo el mismo porcentaje de mIngreso que en el dataset original:
+
+
+```{r,echo=TRUE,eval=TRUE}
+dat <- dat[dat$mIngreso != 1, ]
+
+
+
+dat0 <- dat[dat$mIngreso == 0, ]
+dat2 <- dat[dat$mIngreso == 2, ]
+dat3 <- dat[dat$mIngreso == 3, ]
+
+sampl0 <-  sample(nrow(dat0), floor(nrow(dat0) * 0.75))
+sampl2 <-  sample(nrow(dat2), floor(nrow(dat2) * 0.75))
+sampl3 <-  sample(nrow(dat3), floor(nrow(dat3) * 0.75))
+
+dat_train0 <- dat0[sampl0, ] 
+dat_train2 <- dat2[sampl2, ]
+dat_train3 <- dat3[sampl3, ]
+
+dat_train <- rbind(dat_train0,dat_train2,dat_train3)
+
+dat_test0 <- dat0[-sampl0, ]
+dat_test2 <- dat2[-sampl2, ]
+dat_test3 <- dat3[-sampl3, ]
+
+dat_test <- rbind(dat_test0,dat_test2,dat_test3)
+
+```
+
+6. Convertir mIngreso de caracter a factor:
+
+```{r,echo=TRUE,eval=TRUE}
+dat_train$mIngreso <- as.factor(dat_train$mIngreso)
+dat_test$mIngreso <- as.factor(dat_test$mIngreso)
+```
+
+##KNN
+
+1. Normalizar los datos menos la columna label que en este caso es la columna "mIngreso":
+
+```{r,echo=TRUE,eval=TRUE}
+c <- 1:length(dat)
+c <- c[-5] 
+
+knn_train <- as.data.frame(lapply(dat_train[c], normalize))
+knn_test <- as.data.frame(lapply(dat_test[c], normalize))
+#normalizar todas las columnas menos el feature label
+
+
+knn_train_labels <- dat_train[ ,5]
+knn_test_labels <- dat_test[ ,5] 
+```
+
+
+2. Haremos KNN con los valores más recomendados 8,9,10 y evaluamos su precisión
+
+Ejemplo de como se calcula el KNN , matriz de confusion y la precisión (igual con k=9 y k=10)
+
+
+
+```{r,echo=TRUE}
+prc_test_pred <- knn(train = knn_train, test = knn_test,cl = knn_train_labels, k=8)
+  
+  
+confusionMatrix.knn8<- table(knn_test_labels,prc_test_pred)
+  
+accuracy.knn8 <- (confusionMatrix.knn8[1,1] + confusionMatrix.knn8[2,2] +
+                      confusionMatrix.knn8[3,3])/ sum(confusionMatrix.knn8)
+
+
+```
+
+```{r,echo=FALSE,eval=TRUE}
+prc_test_pred <- knn(train = knn_train, test = knn_test,cl = knn_train_labels, k=9)
+confusionMatrix.knn9<- table(knn_test_labels,prc_test_pred)
+
+
+accuracy.knn9 <- (confusionMatrix.knn9[1,1] + confusionMatrix.knn9[2,2] +
+                    confusionMatrix.knn9[3,3])/ sum(confusionMatrix.knn9)
+```
+
+
+```{r,echo=FALSE,eval=TRUE}
+
+
+prc_test_pred <- knn(train = knn_train, test = knn_test,cl = knn_train_labels, k=10)
+confusionMatrix.knn10<- table(knn_test_labels,prc_test_pred)
+
+
+
+accuracy.knn10 <- (confusionMatrix.knn10[1,1] + confusionMatrix.knn10[2,2] +
+                    confusionMatrix.knn10[3,3])/ sum(confusionMatrix.knn10)
+```
+    
+                   
+Matrices de confusión y precisión de los KNN:
+
+1. K= 8 
+```{r,echo=TRUE,eval=TRUE}
+#Matriz de Confusion con K = 8
+confusionMatrix.knn8
+
+#Precision con K = 8
+accuracy.knn8
+comparar[1] <- accuracy.knn8
+```
+
+
+2. K = 9
+```{r,echo=TRUE,eval=TRUE}
+#Matriz de Confusion con K = 9
+confusionMatrix.knn9
+
+#Precision con K = 9
+accuracy.knn9
+comparar[2] <- accuracy.knn9
+```
+
+
+3. K = 10
+```{r,echo=TRUE,eval=TRUE}
+#Matriz de Confusion con K = 10
+confusionMatrix.knn10
+
+#Precision con K = 10
+accuracy.knn10
+comparar[3] <- accuracy.knn10
+```
+
+ 
+
+## Arboles de decision
+
+Probaremos con 3 arboles, en uno variando el minsplit y en otro el cp 
+
+
+1. minsplit = 10 , cp  0.001
+```{r,echo=FALSE,eval=TRUE}
+training <- dat_train
+testing <- dat_test
+
+tree <- rpart(mIngreso ~ ., data = training, method = "class", control = rpart.control(minsplit = 10, cp = 0.001))
+
+confusionMatrix.tree <- table(testing$mIngreso, predict(tree, newdata = testing,type = "class"))
+
+accuracy.tree <- (confusionMatrix.tree[1,1] + confusionMatrix.tree[2,2]
+                  + confusionMatrix.tree[3,3]) / sum(confusionMatrix.tree)
+
+comparar[4] <- accuracy.tree
+
+```
+
+
+```{r,echo=TRUE,eval=TRUE}
+#Arbol con minsplit = 10, cp = 0.001
+rpart.plot(tree)
+
+#Matriz de Confusion, Arbol con minsplit = 10, cp = 0.001
+confusionMatrix.tree
+
+#Precision, Arbol con minsplit = 10, cp = 0.001
+accuracy.tree
+```
+
+
+
+2. minsplit = 10 , cp  0.001
+```{r,echo=FALSE,eval=TRUE}
+tree2 <- rpart(mIngreso ~ ., data = training, method = "class", control = rpart.control(minsplit = 15, cp = 0.001))
+
+confusionMatrix.tree2 <- table(testing$mIngreso, predict(tree2, newdata = testing,type = "class"))
+
+
+accuracy.tree2 <- (confusionMatrix.tree2[1,1] + confusionMatrix.tree2[2,2]
+                  + confusionMatrix.tree2[3,3]) / sum(confusionMatrix.tree2)
+
+comparar[5] <- accuracy.tree2
+
+```
+ 
+```{r,echo=TRUE,eval=TRUE}
+#Arbol 
+rpart.plot(tree2)
+
+#Matriz de Confusion, Arbol con minsplit = 15, cp = 0.001
+confusionMatrix.tree2
+
+#Precision, Arbol con minsplit = 15, cp = 0.001
+accuracy.tree2
+```
+
+
+3. minsplit = 10 , cp = 0.01
+
+```{r,echo=FALSE,eval=TRUE}
+tree3 <- rpart(mIngreso ~ ., data = training, method = "class", control = rpart.control(minsplit = 10, cp = 0.01))
+
+confusionMatrix.tree3 <- table(testing$mIngreso, predict(tree3, newdata = testing,type = "class"))
+
+accuracy.tree3 <- (confusionMatrix.tree3[1,1] + confusionMatrix.tree3[2,2]
+                   + confusionMatrix.tree3[3,3]) / sum(confusionMatrix.tree3)
+
+comparar[6] <- accuracy.tree3
+```
+
+```{r,echo=TRUE,eval=TRUE}
+#Arbol con minsplit = 10, cp = 0.01
+rpart.plot(tree3)
+
+#Matriz de Confusion, Arbol con minsplit = 15, cp = 0.01
+confusionMatrix.tree3
+
+#Precision, Arbol con minsplit = 15, cp = 0.01
+accuracy.tree3
+```
+
+
+
+## Clasification Rules
+
+1.JRip: JRip implements a propositional rule learner, "Repeated Incremental Pruning to Produce Error Reduction" (RIPPER), as proposed by Cohen (1995)
+
+
+```{r,echo=FALSE,eval=TRUE}
+rules = JRip(formula = mIngreso ~ ., data = training)
+
+#confusion matrix
+confusionMatrix.JRip = table(testing$mIngreso, predict(rules, newdata = testing,type = "class"))
+
+accuracy.JRip <- (confusionMatrix.JRip[1,1] + confusionMatrix.JRip[2,2] +
+                   confusionMatrix.JRip[3,3])/sum(confusionMatrix.JRip)
+
+```
+```{r,echo=TRUE,eval=TRUE}
+
+#confusion matrix
+confusionMatrix.JRip
+
+#Precision
+accuracy.JRip
+comparar[7] <- accuracy.JRip
+
+```
+
+2. OneR builds a simple 1-R classifier, see Holte (1993)
+
+```{r,echo=FALSE,eval=TRUE}
+rules2 = OneR(formula = mIngreso ~ ., data = training)
+
+#confusion matrix
+confusionMatrix.OneR = table(testing$mIngreso, predict(rules2, newdata = testing,type = "class"))
+
+
+accuracy.OneR <- (confusionMatrix.OneR[1,1] + confusionMatrix.OneR[2,2] +
+                      confusionMatrix.OneR[3,3])/sum(confusionMatrix.OneR)
+comparar[8] <- accuracy.OneR
+
+```
+
+```{r,echo=TRUE,eval=TRUE}
+#Matriz de Confusion OneR
+confusionMatrix.OneR
+
+#Precision OneR
+accuracy.OneR
+
+```
+
+
+3. PART generates PART decision lists using the approach of Frank and Witten (1998).
+
+```{r,echo=FALSE,eval=TRUE}
+rules3 = PART(formula = mIngreso ~ ., data = training)
+
+#confusion matrix
+confusionMatrix.PART = table(testing$mIngreso, predict(rules3, newdata = testing,type = "class"))
+
+accuracy.PART<- (confusionMatrix.PART[1,1] + confusionMatrix.PART[2,2] +
+                      confusionMatrix.PART[3,3])/sum(confusionMatrix.PART)
+comparar[9] <- accuracy.PART
+```
+```{r,echo=TRUE,eval=TRUE}
+
+#confusion matrix PART
+confusionMatrix.PART
+
+#Precision PART
+accuracy.PART
+```
+
+
+Es importante destacar que solo tomo en cuenta porque en este caso no es de relevancia la sensitividad o la especificidad como sí podría serlo en casos como detectar o no el cancer de una persona 
+
+```{r,echo=TRUE,eval=TRUE}
+#el mejor valor es 
+comparar <- comparar == max(comparar)
+comparar
+
+#donde de TRUE ES EL MEJOR O MEJORES VALORES
+# de izq a derecha es 
+```
+
+

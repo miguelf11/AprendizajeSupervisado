@@ -487,7 +487,7 @@ accuracy.female
 #Hombres
 
 Asumiremos que al amigo de un amigo solo le interesa el mejor precio posible es decir el caso 1
-```{r, echo=FALSE}
+```{r, echo=TRUE}
 male <- testing.male[testing.male$precision == max(testing.male$precision), ]
 male
 ```
@@ -495,7 +495,7 @@ male
 
 #Mujeres
 
-```{r, echo=FALSE}
+```{r, echo=TRUE}
 female <- testing.female[testing.female$precision == max(testing.female$precision), ]
 female
 ```

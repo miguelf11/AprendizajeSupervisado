@@ -1,5 +1,5 @@
-#install.packages("readxl")
 source("google_api.R")
+install("readxl")
 library(stringr)
 library("readxl")
 data <- read_excel("data/hogares.xlsx")
