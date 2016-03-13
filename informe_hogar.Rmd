@@ -1,3 +1,112 @@
+---
+title: "Hogar"
+author: "Miguel Figueira"
+date: "12 de marzo de 2016"
+output: word_document
+---
+
+
+##Preprocesamiento
+#hogares_googleApi.R
+En este script se hace la "primera" parte del preprocesamiento que fue usar el api de Google para generar el walking.time , walking.metros , driving.time y driving.metros, además de eliminar features como fotos y piso.
+
+En cuanto al uso del api de Google Maps tuve que hacer un ciclo donde hacia 1 petición por cada origen , debido a que algunos origenes daban error en el formato Direccion,Distrito,Italia en cambio si usaba el formato Direccion,Italia aveces agarraba otro distrito y si usaba solo Direccion o Direccion,Distrito tomaba incluso lugares fuera de Italia por lo tanto mi solución fue ir probando "tipo cascada" es decir primero:
+
+1. Direccion , Distrito, Italia
+2. Direccion , Italia
+3. Direccion
+
+Luego almaceno esta información en un csv llamado hogares.csv ya que se tarda bastante hacer tantas peticiones al api , además para evitar problemas con el internet. Además tomo solo los metros en caso de distancia y los segundos en casos de tiempo (mayor precisión)
+
+#procHogar
+En este script contiene el resto del preprocesamiento entre los que se incluye:
+
+1. Crear una columna llamada "sexo" con valores:
+    + ragazzi/raggaze = 2
+    + ragazzi = 0
+    + ragazze = 1
+
+2. Crear varias columnas que contienen los gastos incluidos en el precio
+    + condominio
+    + aseo
+    + agua
+    + internet
+    + calefaccion
+    + internet
+
+3. Separar las instancias , muchas instancias del dataset poseen más de una instancia en una misma fila , por lo tanto separo las filas para diferenciar aquellos que son singola / doppia (por ejemplo) en caso de que sean varios singola(habitaciones simples) simplemente tomo el de mayor valor, esto aumenta el dataset a 113 instancias (10+ de las que tenía originalmente) para esto también cree una columna nueva llamada "precios"
+
+4. Convertir la columna de "Tipo.de.Inmueble" en valores numéricos para poder usarlo en la regresión lineal ya que es un dato importante:
+
+Para esto use levels para saber los distintos formatos en el que estaba escrito los tipo de inmueble y los categorize como:
+    + Apartamento = 3
+    + Mini Apto = 2
+    + Apto tipo estudio = 1
+```{r,eval=FALSE}
+levels(datos$Tipo.de.Inmueble) #para conocer los tipos de datos
+```
+levels(datos$Tipo.de.Inmueble) #para conocer los tipos de datos
+```{r,eval=FALSE}
+datos$Tipo.de.Inmueble[datos$Tipo.de.Inmueble == "Apartamento"] = as.character(3)
+datos$Tipo.de.Inmueble[datos$Tipo.de.Inmueble == "Apparrtamento"] = as.character(3)
+datos$Tipo.de.Inmueble[datos$Tipo.de.Inmueble == "Appartameno"] = as.character(3)
+datos$Tipo.de.Inmueble[datos$Tipo.de.Inmueble == "Appartamenti"] = as.character(3)
+datos$Tipo.de.Inmueble[datos$Tipo.de.Inmueble == "Appartamento"] = as.character(3)
+datos$Tipo.de.Inmueble[datos$Tipo.de.Inmueble == "Mini appartamento"] = as.character(2)
+datos$Tipo.de.Inmueble[datos$Tipo.de.Inmueble == "Mini Appartamento"] = as.character(2)
+datos$Tipo.de.Inmueble[datos$Tipo.de.Inmueble == "Monolocale"] = as.character(1)
+```
+
+
+5. Al final decidí usar solo driving.time el cual lleve al formato de minutos
+```{r,eval=FALSE}
+datos$driving.time <- datos$driving.time %/% 60
+
+datos$driving.metros <- NULL
+datos$walking.time <- NULL
+datos$walking.metros <- NULL
+
+```
+
+
+6. Elimino los features que no sirven para la regresión lineal:
+
+```{r,eval=FALSE}
+datos$Distrito <- NULL
+datos$Notas <- NULL
+datos$X <- NULL
+datos$Dirección <- NULL
+datos$Descripción <- NULL
+```
+
+
+7. Separo la data entre hombres y mujeres:
+
+```{r,eval=FALSE}
+datos.female <- datos[datos$sexo == 1 | datos$sexo == 2, ]
+datos.male <- datos[datos$sexo == 0 | datos$sexo == 2, ]
+```
+
+
+8. Elimino el feature de "sexo"" ya que al ser 2 modelos por separados no tiene mayor influencia:
+
+
+9. Normalizo todos los features entre 0 y 1 (menos el precio) con la siguiente función 
+```{r,eval=FALSE}
+normalize <- function(x) {
+  return (as.numeric(x - min(x)) / as.numeric(max(x) - min(x))) 
+}
+```
+
+
+##Procesamiento
+
+Ahora ya con los 2 datasets separados , solo falta separar la data entre training & testing para crear el modelo y probarlo
+
+
+#Hombres:
+
+```{r, echo=FALSE, eval= TRUE}
 #fitted() hace lo mismo que predict()
 
 normalize <- function(x) {
@@ -6,9 +115,6 @@ normalize <- function(x) {
 
 library('dplyr')
 datos <- read.csv("data/hogares.csv")
-
-
-
 
 
 
@@ -297,12 +403,18 @@ datos.male <- as.data.frame(lapply(datos.male[c], normalize))
 datos.female <- as.data.frame(lapply(datos.female[c], normalize))
 
 
+
+#datos.male <- as.data.frame(lapply(datos.male[1:ncol(datos.male)], normalize))
+#datos.female <- as.data.frame(lapply(datos.female[1:ncol(datos.female)], normalize))
 datos.female$precios <- precios.female
 datos.male$precios <- precios.male
 
 
 
+```
 
+
+```{r, echo=TRUE}
 #split training & testing for males
 sampl <-  sample(nrow(datos.male), floor(nrow(datos.male) * 0.75))
 training.male <- datos.male[sampl, ]
@@ -315,47 +427,75 @@ model.male <- lm(training.male$precios ~ ., training.male)
 testing.male$regresion <- predict(model.male, newdata = testing.male)
 
 #see quality of the model
+
+```
+
+
+Al usar el testing para probar el training da: 
+```{r, echo=FALSE}
 testing.male$precision <- abs(testing.male$precios - abs(testing.male$regresion))
+testing.male[ ,c(9,10,11)]
+```
+Y aquí calculamos el error :
+
+```{r, echo=TRUE}
 accuracy.male <- sum(testing.male$precision)
 accuracy.male
-
-View(testing.male[ ,c(9,10,11)])
-
+```
 
 
 
 
+#Mujeres
+
+```{r, echo= TRUE}
 #split training & testing for females
 
 sampl <-  sample(nrow(datos.female), floor(nrow(datos.female) * 0.75))
 training.female <- datos.female[sampl, ]
 testing.female <- datos.female[-sampl, ]
 
-
 #generate model
 model.female <- lm(training.female$precios ~ ., training.female)
 #aplying model to testing
 testing.female$regresion <- predict(model.female, newdata = testing.female)
+```
 
 
+Al usar el testing para probar el training da: 
+```{r, echo=FALSE}
 testing.female$precision <- abs(testing.female$precios - abs(testing.female$regresion))
+testing.female[ ,c(9,10,11)]
+```
+Y aquí calculamos el error :
+
+```{r, echo=TRUE}
 accuracy.female <- sum(testing.female$precision)
 accuracy.female
+```
 
 
 
-View(testing.female[ ,c(9,10,11)])
+##Eligiendo Hogares:
 
+1. Si el precio es menor al precio que da como resultado la regresión lineal entonces ese es un apartamento(o habitación) con un muy buen precio que debe ser tomado en cuenta.
 
+2. Si el precio es mayor al precio estimado , entonces NO es un buen hogar para tomar en cuenta.
 
-#eleccion del hombre
+3. Si el precio es igual al precio estimado tampoco debe ser descartado porque tiene un precio justo.
+
+#Hombres
+
+Asumiremos que al amigo de un amigo solo le interesa el mejor precio posible es decir el caso 1
+```{r, echo=FALSE}
 male <- testing.male[testing.male$precision == max(testing.male$precision), ]
+male
+```
 
-#eleccion de la mujer
+
+#Mujeres
+
+```{r, echo=FALSE}
 female <- testing.female[testing.female$precision == max(testing.female$precision), ]
-
-
-
-
-
-
+female
+```
